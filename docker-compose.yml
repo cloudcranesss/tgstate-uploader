@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  app:
+    image: tgstate-uploader:latest
+    container_name: tgstate-uploader
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/data
+    environment:
+      # 请根据实际情况修改 API 地址
+      - TGSTATE_API_URL=https://netdisc.smartapi.com.cn/api
+      # 如果需要密码，请在此处设置
+      - TGSTATE_PASS=

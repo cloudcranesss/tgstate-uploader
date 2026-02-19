@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery - TGState Uploader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        .masonry-grid {
+            column-count: 2;
+            column-gap: 1rem;
+        }
+        @media (min-width: 640px) {
+            .masonry-grid {
+                column-count: 3;
+            }
+        }
+        @media (min-width: 1024px) {
+            .masonry-grid {
+                column-count: 4;
+            }
+        }
+        @media (min-width: 1280px) {
+            .masonry-grid {
+                column-count: 5;
+            }
+        }
+        @media (min-width: 1536px) {
+            .masonry-grid {
+                column-count: 6;
+            }
+        }
+        .masonry-item {
+            break-inside: avoid;
+            margin-bottom: 1rem;
+        }
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        /* Hover Preview Tooltip */
+        #hoverPreview {
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 100;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+        }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+    <div id="app" v-cloak>
+        <!-- Navbar -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <a href="/" class="flex items-center text-gray-900 hover:text-blue-600 transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-blue-600 text-2xl mr-3"></i>
+                            <span class="font-bold text-xl">TGState Uploader</span>
+                        </a>
+                        <div class="flex ml-4 sm:ml-10 space-x-2 sm:space-x-8">
+                            <a href="/" class="text-gray-500 hover:text-gray-900 px-2 py-2 sm:px-3 rounded-md text-sm font-medium">Upload</a>
+                            <a href="/gallery" class="text-blue-600 px-2 py-2 sm:px-3 rounded-md text-sm font-medium">Gallery</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <a href="https://github.com/csznet/tgState" target="_blank" class="text-gray-500 hover:text-gray-700">
+                            <i class="fa-brands fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto px-4 py-8 max-w-7xl">
+            
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center space-x-4">
+                    <h2 class="text-2xl font-bold text-gray-800">
+                        <i class="fa-regular fa-images mr-2 text-blue-500"></i> My Gallery
+                    </h2>
+                    
+                    <!-- Filter Tabs -->
+                    <div class="hidden sm:flex bg-gray-100 p-1 rounded-lg">
+                        <button @click="applyFilter('all')" class="px-3 py-1 text-sm font-medium rounded-md transition-colors" :class="filterType === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">All</button>
+                        <button @click="applyFilter('image')" class="px-3 py-1 text-sm font-medium rounded-md transition-colors" :class="filterType === 'image' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">Images</button>
+                        <button @click="applyFilter('video')" class="px-3 py-1 text-sm font-medium rounded-md transition-colors" :class="filterType === 'video' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">Videos</button>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2">
+                     <!-- Mobile Filter Dropdown (Optional, but tabs usually fit) -->
+                    <button @click="loadGallery" class="text-sm text-blue-500 hover:text-blue-700 transition-colors bg-white px-3 py-1.5 rounded-md shadow-sm border border-gray-200">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Filter Tabs (Visible on small screens) -->
+            <div class="flex sm:hidden bg-gray-100 p-1 rounded-lg mb-4 overflow-x-auto">
+                <button @click="applyFilter('all')" class="flex-1 px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap" :class="filterType === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">All</button>
+                <button @click="applyFilter('image')" class="flex-1 px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap" :class="filterType === 'image' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">Images</button>
+                <button @click="applyFilter('video')" class="flex-1 px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap" :class="filterType === 'video' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'">Videos</button>
+            </div>
+
+            <!-- Gallery Grid (Masonry) - For Images and Videos -->
+            <div class="masonry-grid" v-if="filteredFiles.length > 0 && filterType !== 'all'">
+                <div v-for="(item, index) in filteredFiles" :key="item.id || index" 
+                     class="masonry-item bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-lg transition-all duration-300 fade-in group break-inside-avoid"
+                     :style="{ animationDelay: index * 0.05 + 's' }"
+                     @click="openLightbox(item.url, item.type)"
+                     @mouseenter="showPreview($event, item.url, item.type)"
+                     @mouseleave="hidePreview">
+                    
+                    <div class="relative">
+                        <!-- Image -->
+                        <div v-if="item.type === 'image'">
+                            <div v-if="!item.loaded && !item.error" class="relative w-full rounded-t-lg bg-gray-100 min-h-[150px]">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-300">
+                                    <i class="fa-solid fa-image text-3xl animate-pulse"></i>
+                                </div>
+                            </div>
+                            <img v-show="item.loaded" :src="item.url" :alt="item.filename" 
+                                 class="w-full h-auto object-cover rounded-t-lg transition-opacity duration-300"
+                                 loading="lazy" referrerpolicy="no-referrer"
+                                 @load="item.loaded = true"
+                                 @error="handleImageError(item)">
+                            <div v-if="item.error" class="w-full h-40 bg-gray-100 flex items-center justify-center text-gray-400 rounded-t-lg">
+                                <i class="fa-solid fa-circle-exclamation text-2xl"></i>
+                            </div>
+                        </div>
+
+                        <!-- Video -->
+                        <div v-else-if="item.type === 'video'" class="w-full aspect-video bg-gray-900 flex items-center justify-center relative group-hover:bg-gray-800 transition-colors rounded-t-lg">
+                            <div v-if="!item.loaded" class="absolute inset-0 flex items-center justify-center text-gray-600">
+                                <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                            </div>
+                            <video :src="item.url + '#t=0.1'" class="w-full h-full object-cover rounded-t-lg transition-opacity duration-300 relative z-10"
+                                   :class="{ 'opacity-0': !item.loaded }"
+                                   preload="metadata"
+                                   @loadeddata="item.loaded = true"></video>
+                            <div class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                                <i class="fa-solid fa-play-circle text-4xl text-white opacity-80 group-hover:scale-110 transition-transform"></i>
+                            </div>
+                            <div class="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded z-20">
+                                <i class="fa-solid fa-video"></i>
+                            </div>
+                        </div>
+
+                        <!-- Other -->
+                        <div v-else class="w-full aspect-square bg-gray-100 flex flex-col items-center justify-center text-gray-400 rounded-t-lg">
+                            <i class="fa-solid fa-file text-4xl mb-2"></i>
+                            <span class="text-xs px-2 text-center truncate w-full">[[ getExt(item.filename) ]]</span>
+                        </div>
+
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-5 transition-all duration-300 rounded-t-lg"></div>
+                    </div>
+
+                    <div class="p-3">
+                        <p class="text-gray-800 text-sm font-medium truncate" :title="item.filename">[[ item.filename ]]</p>
+                        <div class="flex justify-between items-center mt-2">
+                            <p class="text-gray-400 text-xs">[[ formatDate(item.created_at) ]]</p>
+                            <button @click.stop="copyLink(item.url)" class="text-blue-500 hover:text-blue-700 text-xs bg-blue-50 px-2 py-1 rounded transition-colors">
+                                <i class="fa-regular fa-copy mr-1"></i>Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List View - For All Files -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden" v-if="filteredFiles.length > 0 && filterType === 'all'">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Filename</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Time</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-for="item in filteredFiles" :key="item.id || item.url">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-gray-100 rounded-lg text-lg">
+                                            <i class="fa-solid" :class="getFileIcon(item)"></i>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900 truncate max-w-xs" :title="item.filename">[[ item.filename ]]</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500 truncate max-w-xs cursor-pointer hover:text-blue-600" 
+                                         @click="copyLink(item.url)" :title="item.url">
+                                        [[ item.url ]]
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        [[ formatDate(item.created_at) ]]
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button @click="copyLink(item.url)" class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors" title="Copy Link">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <a :href="item.url" target="_blank" class="ml-2 text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md transition-colors" title="Open Link">
+                                        <i class="fa-solid fa-external-link-alt"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="loading" class="text-center py-20 text-gray-400">
+                <i class="fa-solid fa-spinner fa-spin text-3xl mb-3"></i>
+                <p>Loading...</p>
+            </div>
+
+            <!-- Error State -->
+            <div v-if="error" class="text-center py-20 text-red-500">
+                <i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i>
+                <p>[[ error ]]</p>
+                <button @click="loadGallery" class="mt-4 text-sm text-blue-500 hover:underline">Try Again</button>
+            </div>
+
+            <!-- Empty State -->
+            <div v-if="!loading && !error && filteredFiles.length === 0" class="text-center py-20">
+                <div class="mx-auto h-16 w-16 text-gray-300 mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <i class="fa-regular fa-image text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900">
+                    [[ files.length > 0 ? 'No files found in this category' : 'Gallery is empty' ]]
+                </h3>
+                <p class="mt-2 text-gray-500 mb-6">
+                    [[ files.length > 0 ? 'Try changing the filter' : 'Your uploaded images and videos will be shown here' ]]
+                </p>
+                <a href="/" v-if="files.length === 0" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Go to Upload
+                </a>
+            </div>
+
+        </main>
+
+        <!-- Hover Preview Element -->
+        <div id="hoverPreview" 
+             class="fixed bg-white shadow-2xl rounded-lg overflow-hidden border border-gray-200 w-96 z-50 transition-opacity duration-200"
+             :class="{ 'hidden': !preview.visible, 'opacity-0': !preview.opacity }"
+             :style="{ left: preview.x + 'px', top: preview.y + 'px' }">
+            <div class="relative w-full h-full bg-gray-100 flex items-center justify-center min-h-[200px]">
+                 <img v-if="preview.type === 'image'" :src="preview.url" class="w-full h-auto object-contain" 
+                      :class="{ 'hidden': preview.loading }" @load="preview.loading = false">
+                 
+                 <video v-if="preview.type === 'video'" :src="preview.url" class="w-full h-auto object-contain" 
+                        :class="{ 'hidden': preview.loading }" muted loop autoplay playsinline
+                        @loadeddata="preview.loading = false"></video>
+                 
+                 <div v-if="preview.loading" class="absolute inset-0 flex items-center justify-center text-gray-400">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Lightbox Modal -->
+        <div class="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4 transition-opacity duration-300"
+             :class="{ 'hidden': !lightbox.visible, 'opacity-0': !lightbox.opacity }"
+             @click="closeLightbox">
+            <button class="absolute top-4 right-4 text-white hover:text-gray-300 z-50 p-2" @click="closeLightbox">
+                <i class="fa-solid fa-xmark text-3xl"></i>
+            </button>
+            
+            <div class="relative max-w-5xl max-h-full w-full flex flex-col items-center justify-center" @click.stop>
+                <div class="w-full flex items-center justify-center overflow-hidden" style="max-height: 80vh;">
+                    <img v-if="lightbox.type === 'image'" :src="lightbox.url" class="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-lg">
+                    <video v-if="lightbox.type === 'video'" :src="lightbox.url" controls autoplay class="max-w-full max-h-[80vh] shadow-2xl rounded-lg bg-black"></video>
+                </div>
+                
+                <div class="mt-4 flex items-center space-x-4 bg-gray-800 bg-opacity-75 px-6 py-3 rounded-full">
+                    <a :href="lightbox.url" target="_blank" class="text-white hover:text-blue-300 flex items-center text-sm font-medium">
+                        <i class="fa-solid fa-external-link-alt mr-2"></i> Original Link
+                    </a>
+                    <span class="text-gray-500">|</span>
+                    <button @click="copyLink(lightbox.url)" class="text-white hover:text-blue-300 flex items-center text-sm font-medium">
+                        <i class="fa-regular fa-copy mr-2"></i> Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="fixed bottom-5 right-5 transform transition-all duration-300 z-50"
+             :class="{ 'translate-y-20 opacity-0': !toast.visible, 'translate-y-0 opacity-100': toast.visible }">
+            <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
+                <i class="fa-solid mr-3" :class="toast.icon"></i>
+                <span>[[ toast.message ]]</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-auto">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <p class="text-center text-sm text-gray-500">
+                    &copy; 2024 TGState Uploader. Powered by <a href="https://github.com/csznet/tgState" class="text-blue-500 hover:underline">tgState</a>.
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            setup() {
+                const files = ref([]);
+                const filteredFiles = ref([]);
+                const filterType = ref('all'); // all, image, video, other
+                const loading = ref(true);
+                const error = ref(null);
+                
+                // Lightbox State
+                const lightbox = ref({ visible: false, opacity: false, url: '', type: '' });
+                
+                // Preview State
+                const preview = ref({ visible: false, opacity: false, x: 0, y: 0, url: '', type: '', loading: true });
+                let previewTimeout = null;
+
+                // Toast State
+                const toast = ref({ visible: false, message: '', icon: '' });
+                let toastTimeout = null;
+
+                // Methods
+                const getExt = (filename) => filename.split('.').pop().toUpperCase();
+                const formatDate = (dateStr) => dateStr.split(' ')[0];
+
+                const determineType = (item) => {
+                    // 优先检查文件名
+                    const name = item.filename || '';
+                    if (name.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg|ico|tiff|tif)$/i)) return 'image';
+                    if (name.match(/\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i)) return 'video';
+                    
+                    // 其次检查 URL（如果有后缀）
+                    const url = item.url || '';
+                    if (url.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg|ico|tiff|tif)(\?.*|#.*)?$/i)) return 'image';
+                    if (url.match(/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?.*|#.*)?$/i)) return 'video';
+                    
+                    return 'other';
+                };
+
+                const applyFilter = (type) => {
+                    filterType.value = type;
+                    if (type === 'all') {
+                        filteredFiles.value = files.value;
+                    } else {
+                        filteredFiles.value = files.value.filter(item => item.type === type);
+                    }
+                };
+
+                const getFileIcon = (item) => {
+                    const name = item.filename || '';
+                    if (name.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg|ico|tiff|tif)$/i)) return 'fa-image text-purple-500';
+                    if (name.match(/\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i)) return 'fa-video text-blue-500';
+                    
+                    const url = item.url || '';
+                    if (url.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg)(\?.*|#.*)?$/i)) return 'fa-image text-purple-500';
+                    if (url.match(/\.(mp4|webm|ogg|mov)(\?.*|#.*)?$/i)) return 'fa-video text-blue-500';
+                    
+                    return 'fa-file text-gray-400';
+                };
+
+                const loadGallery = async () => {
+                    loading.value = true;
+                    error.value = null;
+                    try {
+                        const response = await fetch('/api/history');
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        const data = await response.json();
+                        files.value = data.map(item => ({
+                            ...item,
+                            type: determineType(item),
+                            loaded: false,
+                            error: false
+                        }));
+                        applyFilter(filterType.value);
+                    } catch (err) {
+                        console.error('Failed to load gallery:', err);
+                        error.value = 'Failed to load, please refresh';
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const handleImageError = (item) => {
+                    item.loaded = false;
+                    item.error = true;
+                };
+
+                // Lightbox
+                const openLightbox = (url, type) => {
+                    if (type === 'other') {
+                        window.open(url, '_blank');
+                        return;
+                    }
+                    lightbox.value = { visible: true, opacity: false, url, type };
+                    document.body.style.overflow = 'hidden';
+                    requestAnimationFrame(() => lightbox.value.opacity = true);
+                };
+
+                const closeLightbox = () => {
+                    lightbox.value.opacity = false;
+                    setTimeout(() => {
+                        lightbox.value.visible = false;
+                        lightbox.value.url = ''; // Stop video
+                        document.body.style.overflow = '';
+                    }, 300);
+                };
+
+                // Hover Preview
+                const showPreview = (event, url, type) => {
+                    if (type === 'other' || window.innerWidth < 1024) return;
+                    
+                    clearTimeout(previewTimeout);
+                    preview.value.loading = true;
+                    preview.value.type = type;
+                    preview.value.url = url;
+                    preview.value.visible = true;
+                    
+                    // Calculate position
+                    const element = event.currentTarget;
+                    const rect = element.getBoundingClientRect();
+                    const viewportWidth = window.innerWidth;
+                    const viewportHeight = window.innerHeight;
+                    
+                    const previewWidth = 384; 
+                    const previewHeight = 300; 
+                    
+                    let left = rect.right + 20;
+                    let top = rect.top;
+
+                    if (left + previewWidth > viewportWidth) {
+                        left = rect.left - previewWidth - 20;
+                    }
+                    
+                    if (top + previewHeight > viewportHeight) {
+                        top = viewportHeight - previewHeight - 20;
+                    }
+                    if (top < 20) top = 20;
+
+                    preview.value.x = left;
+                    preview.value.y = top;
+
+                    requestAnimationFrame(() => preview.value.opacity = true);
+                };
+
+                const hidePreview = () => {
+                    preview.value.opacity = false;
+                    previewTimeout = setTimeout(() => {
+                        preview.value.visible = false;
+                        preview.value.url = '';
+                    }, 200);
+                };
+
+                // Toast
+                const showToast = (message, type = 'success') => {
+                    toast.value.message = message;
+                    toast.value.icon = type === 'success' ? 'fa-check-circle text-green-400' : 'fa-circle-exclamation text-red-400';
+                    toast.value.visible = true;
+                    
+                    clearTimeout(toastTimeout);
+                    toastTimeout = setTimeout(() => {
+                        toast.value.visible = false;
+                    }, 3000);
+                };
+
+                const copyLink = (text) => {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('Link copied to clipboard', 'success');
+                    }, () => {
+                        showToast('Failed to copy', 'error');
+                    });
+                };
+
+                // Lifecycle
+                onMounted(() => {
+                    loadGallery();
+                    window.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') closeLightbox();
+                    });
+                });
+
+                return {
+                    files, loading, error, lightbox, preview, toast,
+                    loadGallery, openLightbox, closeLightbox, showPreview, hidePreview, copyLink, handleImageError,
+                    getExt, formatDate, filteredFiles, filterType, applyFilter, getFileIcon
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

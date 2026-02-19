@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TGState Uploader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        .drag-active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+    <div id="app" v-cloak>
+        <!-- Navbar -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <a href="/" class="flex items-center text-gray-900 hover:text-blue-600 transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-blue-600 text-2xl mr-3"></i>
+                            <span class="font-bold text-xl">TGState Uploader</span>
+                        </a>
+                        <div class="flex ml-4 sm:ml-10 space-x-2 sm:space-x-8">
+                            <a href="/" class="text-blue-600 px-2 py-2 sm:px-3 rounded-md text-sm font-medium">Upload</a>
+                            <a href="/gallery" class="text-gray-500 hover:text-gray-900 px-2 py-2 sm:px-3 rounded-md text-sm font-medium">Gallery</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <a href="https://github.com/csznet/tgState" target="_blank" class="text-gray-500 hover:text-gray-700">
+                            <i class="fa-brands fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto px-4 py-8 max-w-5xl">
+            
+            <!-- Upload Section -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8 transition-all hover:shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 border-l-4 border-blue-500 pl-3">Upload File</h2>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer transition-colors duration-200 group"
+                     :class="{ 'border-blue-400 bg-gray-50': dragActive, 'pointer-events-none opacity-50': uploading }"
+                     @click="triggerFileInput"
+                     @dragover.prevent="dragActive = true"
+                     @dragleave.prevent="dragActive = false"
+                     @drop.prevent="handleDrop">
+                    
+                    <input type="file" ref="fileInput" class="hidden" accept="image/*,video/*" @change="handleFileChange">
+                    
+                    <div class="space-y-4 pointer-events-none">
+                        <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-blue-500 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-cloud-upload-alt text-3xl"></i>
+                        </div>
+                        <div class="text-gray-600">
+                            <p class="font-medium text-lg">Click or Drag & Drop files here</p>
+                            <p class="text-sm text-gray-400 mt-1">Supports Images (JPG, PNG, GIF...) and Videos (MP4, MOV...)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Progress / Status -->
+                <div v-if="uploadStatus.visible" class="mt-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-gray-700 truncate max-w-xs">[[ uploadStatus.filename ]]</span>
+                        <span class="text-sm font-medium" :class="uploadStatus.error ? 'text-red-500' : 'text-blue-600'">[[ uploadStatus.percentage ]]%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="h-2.5 rounded-full transition-all duration-300" 
+                             :class="uploadStatus.error ? 'bg-red-500' : 'bg-blue-600'"
+                             :style="{ width: uploadStatus.percentage + '%' }"></div>
+                    </div>
+                    <p class="text-sm mt-2 text-center font-medium" 
+                       :class="uploadStatus.error ? 'text-red-500' : (uploadStatus.success ? 'text-green-600' : 'text-gray-500')">
+                       [[ uploadStatus.text ]]
+                    </p>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left mr-2 text-gray-400"></i> History
+                    </h2>
+                    <button @click="loadHistory" class="text-sm text-blue-500 hover:text-blue-700 transition-colors">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Filename</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Time</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-if="loadingHistory">
+                                <td colspan="4" class="px-6 py-10 text-center text-gray-400">
+                                    <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+                                </td>
+                            </tr>
+                            <tr v-else-if="history.length === 0">
+                                <td colspan="4" class="px-6 py-12 text-center">
+                                    <div class="mx-auto h-12 w-12 text-gray-300 mb-3">
+                                        <i class="fa-regular fa-folder-open text-4xl"></i>
+                                    </div>
+                                    <h3 class="text-sm font-medium text-gray-900">No upload history</h3>
+                                    <p class="mt-1 text-sm text-gray-500">Upload your first file now!</p>
+                                </td>
+                            </tr>
+                            <tr v-for="item in history" :key="item.id || item.url">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-gray-100 rounded-lg text-lg">
+                                            <i class="fa-solid" :class="getFileIcon(item)"></i>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900 truncate max-w-xs" :title="item.filename">[[ item.filename ]]</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500 truncate max-w-xs cursor-pointer hover:text-blue-600" 
+                                         @click="copyLink(item.url)" :title="item.url">
+                                        [[ item.url ]]
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        [[ item.created_at ]]
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button @click="copyLink(item.url)" class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors" title="Copy Link">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <a :href="item.url" target="_blank" class="ml-2 text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md transition-colors" title="Open Link">
+                                        <i class="fa-solid fa-external-link-alt"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-auto">
+            <div class="max-w-5xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <p class="text-center text-sm text-gray-500">
+                    &copy; 2024 TGState Uploader. Powered by <a href="https://github.com/csznet/tgState" class="text-blue-500 hover:underline">tgState</a>.
+                </p>
+            </div>
+        </footer>
+
+        <!-- Toast Notification -->
+        <div class="fixed bottom-5 right-5 transform transition-all duration-300 z-50"
+             :class="{ 'translate-y-20 opacity-0': !toast.visible, 'translate-y-0 opacity-100': toast.visible }">
+            <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
+                <i class="fa-solid mr-3" :class="toast.icon"></i>
+                <span>[[ toast.message ]]</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            setup() {
+                const history = ref([]);
+                const loadingHistory = ref(false);
+                const uploading = ref(false);
+                const dragActive = ref(false);
+                const fileInput = ref(null);
+                
+                const uploadStatus = ref({
+                    visible: false,
+                    filename: '',
+                    percentage: 0,
+                    text: '',
+                    error: false,
+                    success: false
+                });
+
+                const toast = ref({ visible: false, message: '', icon: '' });
+                let toastTimeout = null;
+
+                // Methods
+                const triggerFileInput = () => {
+                    fileInput.value.click();
+                };
+
+                const handleFileChange = (e) => {
+                    if (e.target.files.length > 0) {
+                        validateAndUpload(e.target.files[0]);
+                    }
+                };
+
+                const handleDrop = (e) => {
+                    dragActive.value = false;
+                    if (e.dataTransfer.files.length > 0) {
+                        validateAndUpload(e.dataTransfer.files[0]);
+                    }
+                };
+
+                const validateAndUpload = (file) => {
+                    // Simple validation for type if needed, but we accept all files generally or filter by accept
+                    // The accept attribute in input handles images/video, but we can double check
+                    const validTypes = ['image/', 'video/'];
+                    // If you want to strictly enforce types:
+                    const isValid = validTypes.some(type => file.type.startsWith(type));
+                    if (!isValid) {
+                         // But maybe we want to allow all files? Previous code restricted to image/video
+                         showToast('Only image and video files are supported', 'error');
+                         return;
+                    }
+                    
+                    uploadFile(file);
+                };
+
+                const uploadFile = async (file) => {
+                    if (uploading.value) return;
+                    
+                    uploading.value = true;
+                    uploadStatus.value = {
+                        visible: true,
+                        filename: file.name,
+                        percentage: 0,
+                        text: 'Uploading...',
+                        error: false,
+                        success: false
+                    };
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', '/api/upload', true);
+
+                            xhr.upload.onprogress = (e) => {
+                                if (e.lengthComputable) {
+                                    const percent = Math.round((e.loaded / e.total) * 100);
+                                    uploadStatus.value.percentage = percent;
+                                }
+                            };
+
+                            xhr.onload = function() {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    resolve(JSON.parse(xhr.responseText));
+                                } else {
+                                    let errorMsg = 'Upload failed';
+                                    try {
+                                        const res = JSON.parse(xhr.responseText);
+                                        errorMsg = res.detail || errorMsg;
+                                    } catch(e) {}
+                                    reject(new Error(errorMsg));
+                                }
+                            };
+
+                            xhr.onerror = () => reject(new Error('Network error'));
+                            xhr.send(formData);
+                        });
+
+                        uploadStatus.value.percentage = 100;
+                        uploadStatus.value.text = 'Upload Successful!';
+                        uploadStatus.value.success = true;
+                        showToast('File uploaded successfully', 'success');
+                        loadHistory(); // Refresh list
+
+                    } catch (error) {
+                        uploadStatus.value.text = 'Upload failed: ' + error.message;
+                        uploadStatus.value.error = true;
+                        showToast(error.message, 'error');
+                    } finally {
+                        uploading.value = false;
+                        if (fileInput.value) fileInput.value.value = ''; // Reset input
+                    }
+                };
+
+                const loadHistory = async () => {
+                    loadingHistory.value = true;
+                    try {
+                        const response = await fetch('/api/history');
+                        const data = await response.json();
+                        history.value = data;
+                    } catch (error) {
+                        console.error('Failed to load history:', error);
+                        showToast('Failed to load history', 'error');
+                    } finally {
+                        loadingHistory.value = false;
+                    }
+                };
+
+                const getFileIcon = (item) => {
+                    const name = item.filename || '';
+                    if (name.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg|ico|tiff|tif)$/i)) return 'fa-image text-purple-500';
+                    if (name.match(/\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i)) return 'fa-video text-blue-500';
+                    
+                    const url = item.url || '';
+                    if (url.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg)(\?.*|#.*)?$/i)) return 'fa-image text-purple-500';
+                    if (url.match(/\.(mp4|webm|ogg|mov)(\?.*|#.*)?$/i)) return 'fa-video text-blue-500';
+                    
+                    return 'fa-file text-gray-400';
+                };
+
+                const showToast = (message, type = 'success') => {
+                    toast.value.message = message;
+                    toast.value.icon = type === 'success' ? 'fa-check-circle text-green-400' : 'fa-circle-exclamation text-red-400';
+                    toast.value.visible = true;
+                    
+                    clearTimeout(toastTimeout);
+                    toastTimeout = setTimeout(() => {
+                        toast.value.visible = false;
+                    }, 3000);
+                };
+
+                const copyLink = (text) => {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('Link copied to clipboard', 'success');
+                    }, () => {
+                        showToast('Failed to copy', 'error');
+                    });
+                };
+
+                onMounted(() => {
+                    loadHistory();
+                });
+
+                return {
+                    history, loadingHistory, uploading, dragActive, uploadStatus, toast, fileInput,
+                    triggerFileInput, handleFileChange, handleDrop, loadHistory, copyLink, getFileIcon
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
