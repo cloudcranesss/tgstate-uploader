@@ -2,7 +2,7 @@
 
 一个现代化的、响应式的 Web 上传工具，专为 [tgState](https://github.com/csznet/tgState) 或 [tgNetDisc](https://github.com/Yohann0617/tgNetDisc) 设计。拥有精美的瀑布流图库和即时预览功能。
 
-![Gallery Preview](https://via.placeholder.com/800x400?text=Gallery+Preview+Placeholder)
+![Gallery Preview](http://tgstate.evos.alanmaster.top/d/BQACAgUAAyEGAASMO11uAAIBHmmXLLaow5Y2WV2m4Jr68MQ_8V2pAAIzIQAC9XC5VBuRwgJs5ekQOgQ)
 
 ## 功能特性
 
