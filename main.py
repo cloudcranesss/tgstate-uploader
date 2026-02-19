@@ -14,11 +14,11 @@ from urllib.parse import urlparse, urljoin
 
 # 配置
 # 基础 URL，用于拼接相对路径
-BASE_URL = os.getenv("BASE_URL", "http://tgstate.evos.alanmaster.top")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8088")
 # 优先使用环境变量中的 TGSTATE_API_URL，如果没有则使用 BASE_URL + /api
 TGSTATE_API_URL = os.getenv("TGSTATE_API_URL", f"{BASE_URL}/api")
 # 如果设置了密码，请在此处填写
-TGSTATE_PASS = os.getenv("TGSTATE_PASS", "35432d8e-6ec9-f4ff-35df-0148a442bb06")
+TGSTATE_PASS = os.getenv("TGSTATE_PASS", "")
 
 app = FastAPI(title="TgState Uploader")
 
